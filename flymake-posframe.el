@@ -58,8 +58,15 @@
 (defvar-local flymake-posframe-last-diag nil
   "Show the error at point.")
 
-(defvar flymake-posframe-hide-posframe-hooks
-  '(pre-command-hook post-command-hook focus-out-hook)
+(defvar flymake-posframe-hide-posframe-auto-hooks
+  '(pre-command-hook post-command-hook after-focus-change-function)
+  "The hooks which should trigger automatic removal of the posframe.")
+
+(defvar flymake-posframe-hide-posframe-manual-hooks
+  '(pre-command-hook after-focus-change-function)
+  "The hooks which should trigger automatic removal of the posframe.")
+
+(defvar flymake-posframe-hide-posframe-hooks flymake-posframe-hide-posframe-manual-hooks
   "The hooks which should trigger automatic removal of the posframe.")
 
 (defface flymake-posframe-background-face
@@ -84,6 +91,7 @@ Only the `foreground' is used in this face."
     (remove-hook hook #'flymake-posframe-hide t)))
 
 (defun flymake-posframe-display ()
+  (interactive)
   (when flymake-mode
     (if-let ((diag (get-char-property (point) 'flymake-diagnostic)))
         (unless (and (eq diag flymake-posframe-last-diag)
@@ -91,25 +99,25 @@ Only the `foreground' is used in this face."
           (setq flymake-posframe-last-diag diag)
           (posframe-show
            flymake-posframe-buffer
-	   :internal-border-width 3
-	   :left-fringe 1
-	   :right-fringe 1
-	   :foreground-color (face-foreground 'flymake-posframe-foreground-face nil t)
-	   :background-color (face-background 'flymake-posframe-background-face nil t)
+           :internal-border-width 3
+           :left-fringe 1
+           :right-fringe 1
+           :foreground-color (face-foreground 'flymake-posframe-foreground-face nil t)
+           :background-color (face-background 'flymake-posframe-background-face nil t)
            :string (concat (propertize
-			    (pcase (flymake--diag-type diag)
-                                 (:error flymake-posframe-error-prefix)
-                                 (:warning flymake-posframe-warning-prefix)
-                                 (:note flymake-posframe-note-prefix))
-                               'face 'warning)
-			   (flymake--diag-text diag)))
+                            (pcase (flymake--diag-type diag)
+                              (:error flymake-posframe-error-prefix)
+                              (:warning flymake-posframe-warning-prefix)
+                              (:note flymake-posframe-note-prefix))
+                            'face 'warning)
+                           (flymake--diag-text diag)))
 
-	  (let ((current-posframe-frame
-		 (buffer-local-value 'posframe--frame (get-buffer flymake-posframe-buffer))))
-	    (redirect-frame-focus current-posframe-frame (frame-parent current-posframe-frame)))
+          (let ((current-posframe-frame
+                 (buffer-local-value 'posframe--frame (get-buffer flymake-posframe-buffer))))
+            (redirect-frame-focus current-posframe-frame (frame-parent current-posframe-frame)))
 
-	  (dolist (hook flymake-posframe-hide-posframe-hooks)
-	    (add-hook hook #'flymake-posframe-hide nil t)))
+          (dolist (hook flymake-posframe-hide-posframe-hooks)
+            (add-hook hook #'flymake-posframe-hide nil t)))
       (flymake-posframe-hide))))
 
 (define-minor-mode flymake-posframe-mode
@@ -118,8 +126,10 @@ Only the `foreground' is used in this face."
   :group flymake-posframe
   (cond
    (flymake-posframe-mode
+    (flymake-posframe-hide-posframe-hooks flymake-posframe-hide-posframe-auto-hooks)
     (add-hook 'post-command-hook #'flymake-posframe-display nil 'local))
    (t
+    (flymake-posframe-hide-posframe-hooks flymake-posframe-hide-posframe-manual-hooks)
     (remove-hook 'post-command-hook #'flymake-posframe-display 'local))))
 
 (provide 'flymake-posframe)
